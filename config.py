@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Receive Token
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("TOKEN")
 
 
 # HELP 
