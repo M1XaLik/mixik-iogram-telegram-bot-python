@@ -7,6 +7,7 @@ load_dotenv()
 # Receive Token
 BOT_TOKEN = os.getenv("TOKEN")
 
+startMessage = "<b>Привіт, мене звуть Mixik.😊\nДля отримання розширеної інформації скористайся командою 👉🏿 <i>/help</i></b>"
 
 # HELP 
 commandsList = (
