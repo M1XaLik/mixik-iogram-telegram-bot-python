@@ -2,23 +2,24 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-import config  # Import configurations
-import handlers  # Import handlers
+import config
+import handlers # import commands realisation
+from logger import logger  # import logger
 
-# Creating the bot object
+# Створення об'єкта бота
 bot = Bot(token=config.BOT_TOKEN)
 
-# Creating the dispatcher with state storage
+# Створення диспетчера з зберіганням станів
 dp = Dispatcher(storage=MemoryStorage())
 
-# Register handlers (imported from handlers.py)
+# Реєстрація обробників
 handlers.register_handlers(dp)
+logger.info("Handlers registered and bot is initialized.")
 
-# Main function to start the bot
+# Головна функція для запуску бота
 async def main():
-    print("Bot is running!")
+    logger.info("Bot is running!")
     await dp.start_polling(bot)
 
-# Entry point for the program
 if __name__ == "__main__":
     asyncio.run(main())
