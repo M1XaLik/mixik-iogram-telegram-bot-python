@@ -10,12 +10,10 @@ import config  # Import configuration
 from logger import logger  # import logger
 
 
-
 # Define states for user input
 class UserBirthday(StatesGroup):
     name = State()
     birthdate = State()
-
 
 
 # Хендлер для start функції
@@ -168,6 +166,8 @@ async def process_birthdate(message: types.Message, state: FSMContext):
     if not await is_user_authorized(message, state):
         return
 
+    # Update Data in FSM
+    await state.update_data(birthdate=message.text)
 
     # Отримуємо ID попереднього повідомлення
     data = await state.get_data()
@@ -192,7 +192,6 @@ async def process_birthdate(message: types.Message, state: FSMContext):
         await state.clear()
         return
 
-    await state.update_data(birthdate=message.text)
 
     # Дістаємо дані про користувача
     name = data.get("name")
