@@ -181,11 +181,11 @@ def get_birthday_reminders_for_today():
             b.creator_telegram_user_id,
             b.birthday_person_identifier,
             b.birthdate,
-            b.chat_id_to_notify,
+            b.telegram_chat_id,
             c.telegram_chat_name,
             c.telegram_chat_type
         FROM birthdays b
-        JOIN chats c ON b.chat_id_to_notify = c.telegram_chat_id
+        JOIN chats c ON b.telegram_chat_id = c.telegram_chat_id
         WHERE STRFTIME('%m-%d', b.birthdate) = STRFTIME('%m-%d', 'now', 'localtime');
     """
     

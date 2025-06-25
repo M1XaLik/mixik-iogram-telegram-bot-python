@@ -37,9 +37,16 @@ async def main():
         logger.critical(f"Critical error during handlers registration: {e}", exc_info=True)
         return
 
-    # TODO: Сюди додати scheduler
+    # 3. Реєстрація планувальника
+    logger.info("Starting scheduler...")
+    try:
+        scheduler.setup_bot_scheduler(bot)
+        logger.info("Scheduler successfully started.")
+    except Exception as e:
+        logger.critical(f"Critical error during scheduler startup: {e}", exc_info=True)
+        # Якщо планувальник не запустився, бот продовжить працювати, але без автоматичних нагадувань.
 
-    # 3. Запуск бота
+    # 4. Запуск бота
     logger.info("Bot is running!")
     await bot.delete_webhook(drop_pending_updates=True) # щоб видалити всі вебхуки (оновлення), які накопичились в телеграмі за цей час
     await dp.start_polling(bot)

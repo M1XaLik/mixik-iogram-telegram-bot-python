@@ -9,45 +9,83 @@ import database_manager # Імпортуємо менеджер БД для от
 from logger import logger  # import logger
 
 
-async def send_birthday_reminders_task(bot: Bot):
+async def send_daily_birthday_reminders_task(bot_instance: Bot):
     """
-    Scheduled task to check for today's birthdays and send reminders.
+    Scheduled task to check for today's birthdays and send reminders to the specified chats.
     This function runs periodically via APScheduler.
-    """
 
-    logger.info("Checking for today's birthdays to send reminders...")
+    Отримуємо сьогоднішні нагадування про дні народження з бази даних
+    Функція get_birthday_reminders_for_today повертає:
+    (id, creator_telegram_user_id, birthday_person_identifier, birthdate, chat_id_to_notify, telegram_chat_name, telegram_chat_type)
+    """
+    logger.info("Executing daily birthday reminder job. Checking for today's birthdays...")
     
     try:
-        # Get today's birthdays from the database
-        today_birthdays = database_manager.get_today_birthdays()
+        today_birthdays = database_manager.get_birthday_reminders_for_today()
+
+        logger.debug(f"Found {len(today_birthdays)} birthday reminders for today.")
 
         if not today_birthdays:
             logger.info("No birthdays found for today.")
             return
 
-        for user_id, name in today_birthdays:
-            logger.debug(f"Preparing to send birthday reminder for {name} to user {user_id}")
+        for reminder in today_birthdays:
             try:
-                # Send the birthday messages
-                await bot.send_message(
-                    chat_id=user_id, 
-                    text=f"Сьогодні День народження в 👉🏿 {name}!" # Reminder message
+                # Розпаковуємо дані з кортежу
+                # Tuple unpacking
+                # Назви змінних збігаються з назвами колонок у БД
+                (
+                    reminder_id,
+                    creator_telegram_user_id, 
+                    birthday_person_identifier, 
+                    birthdate, 
+                    chat_id_to_notify, 
+                    telegram_chat_name,
+                    telegram_chat_type
+                ) = reminder
+
+                logger.debug(f"Preparing to send birthday reminder for '{birthday_person_identifier}' (Born: {birthdate}) to chat ID {chat_id_to_notify} ({telegram_chat_name}, type: {telegram_chat_type}).")
+
+                # Формуємо повідомлення
+                # Використовуємо birthday_person_identifier, яке може бути як ім'ям, так і @username
+                # Також можна додати рік, якщо він є у birthdate
+                display_date = birthdate
+                if len(birthdate) == 10: # Якщо формат YYYY-MM-DD
+                    year = birthdate.split('-')[0]
+                    display_date = f"{birthdate[5:]}.{year}" # Наприклад, 05-15.1990
+                
+                message_text = (
+                    f"🎉 **Сьогодні День народження у {birthday_person_identifier}!**\n"
+                    f"🎂 Дата народження: {display_date}" # Використовуємо display_date
                 )
-                # await bot.send_animation(
-                #     chat_id=user_id, 
-                #     animation=random.choice(config.BIRTHDAY_GIFS) # Random GIF from config
-                # )
-                # await bot.send_message(
-                #     chat_id=user_id, 
-                #     text=random.choice(config.BIRTHDAY_TEXTS) # Random text from config
-                # )
-                logger.info(f"Successfully sent birthday reminders for {name} to user {user_id}.")
-            except Exception as user_e:
-                logger.error(f"Failed to send birthday reminder to user {user_id} ({name}): {user_e}", exc_info=True)
-                # This could be due to user blocking the bot, invalid user_id, etc.
+                
+                # Надсилаємо повідомлення у вказаний чат
+                await bot_instance.send_message(
+                    chat_id=chat_id_to_notify, 
+                    text=message_text,
+                    parse_mode="Markdown" # Використовуємо Markdown для жирного тексту
+                )
+                
+                # TODO: GIF або випадкові тексти
+                # if config.BIRTHDAY_GIFS:
+                #     await bot_instance.send_animation(
+                #         chat_id=chat_id_to_notify,
+                #         animation=random.choice(config.BIRTHDAY_GIFS)
+                #     )
+                # if config.BIRTHDAY_TEXTS:
+                #     await bot_instance.send_message(
+                #         chat_id=chat_id_to_notify,
+                #         text=random.choice(config.BIRTHDAY_TEXTS)
+                #     )
+
+                logger.info(f"Successfully sent birthday reminder for '{birthday_person_identifier}' to chat ID {chat_id_to_notify}.")
+
+            except Exception as e:
+                # Логуємо помилку для конкретного нагадування, не зупиняючи обробку інших
+                logger.error(f"Failed to send birthday reminder for '{reminder[2]}' (ID: {reminder[0]}) to chat ID {reminder[4]}: {e}", exc_info=True)
 
     except Exception as e:
-        logger.critical(f"Critical error in send_birthday_reminders_task: {e}", exc_info=True)
+        logger.critical(f"Critical error in send_daily_birthday_reminders: {e}", exc_info=True)
 
 
 def setup_bot_scheduler(bot: Bot) -> AsyncIOScheduler:
@@ -65,7 +103,7 @@ def setup_bot_scheduler(bot: Bot) -> AsyncIOScheduler:
 
     # Add the daily birthday reminder job
     scheduler.add_job(
-        send_birthday_reminders_task,
+        send_daily_birthday_reminders_task,
         'cron',
         hour=config.BIRTHDAY_REMINDER_HOUR,
         minute=config.BIRTHDAY_REMINDER_MINUTE,

@@ -305,5 +305,3 @@ def register_handlers(dp: Dispatcher):
     
     # Обробник для кнопки 'Cancel'
     dp.callback_query.register(cancel_handler, F.data == "cancel") # F.data - helper
-
-    logger.info("Handlers registered successfully.")
