@@ -7,8 +7,8 @@ load_dotenv()
 # Receive Token
 BOT_TOKEN = os.getenv("TOKEN")
 
-# Отримуємо абсолютний шлях до файлу бази даних
-DB_DIR = "data" # Папка для бази даних (шлях)
+# Отримуємо абсолютний шлях до файлу бази даних (потрібно для ініціалізації БД)
+DB_DIR = ".data" # Папка для бази даних (шлях)
 DB_NAME = "botbase.db"
 DB_PATH = os.path.join(DB_DIR, DB_NAME)
 

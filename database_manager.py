@@ -6,9 +6,13 @@ from logger import logger # import logger
 
 
 # Створюємо директорію для БД, якщо її немає
-# if not os.path.exists(config.DB_PATH):
-#     os.makedirs(config.DB_PATH)
-#     logger.info(f"Created database directory: {config.DB_PATH}")
+if not os.path.exists(config.DB_DIR):
+    try:
+        os.makedirs(config.DB_DIR)
+        logger.info(f"Created database directory: {config.DB_DIR}")
+    except OSError as e:
+        logger.critical(f"Failed to create database directory {config.DB_DIR}: {e}", exc_info=True)
+        raise Exception(f"Failed to create database directory {config.DB_DIR}: {e}")
 
 
 def execute_query(query: str, params: tuple = (), fetchone: bool = False, fetchall: bool = False):
@@ -78,20 +82,19 @@ def init_database():
             creator_telegram_user_id INTEGER NOT NULL,
 
             -- Поле для юзера, в якого день народження
-            birthday_person_identifier TEXT NOT NULL
+            birthday_person_identifier TEXT NOT NULL,
             
             birthdate TEXT NOT NULL, -- Формат YYYY-MM-DD або MM-DD
             telegram_chat_id INTEGER NOT NULL, -- Куди надсилати нагадування
             
             -- Пов'язати таблиці
-            FOREIGN KEY (creator_telegram_user_id) REFERENCES chats (telegram_user_id) ON DELETE CASCADE
-            FOREIGN KEY (telegram_chat_id) REFERENCES users (telegram_chat_id) ON DELETE CASCADE
+            FOREIGN KEY (creator_telegram_user_id) REFERENCES users (telegram_user_id) ON DELETE CASCADE
+            FOREIGN KEY (telegram_chat_id) REFERENCES chats (telegram_chat_id) ON DELETE CASCADE
         )
     """)
     logger.info("Table 'birthdays' checked/created.")
 
 
-# TODO: ПЕРЕДИВИТИСЬ УВСІ ФУНКЦІЇ ВІДПОВІДНО ДО ЗМІН У БД
 def add_or_update_user(telegram_user_id: int, telegram_user_name: str, telegram_user_tag: str = None):
     """
     Додає нового користувача або оновлює інформацію існуючого користувача в таблиці 'users'.
@@ -140,7 +143,7 @@ def add_birthday_reminder(
     creator_telegram_user_id: int,
     birthday_person_identifier: str, 
     birthdate: str, 
-    chat_id_to_notify: int
+    telegram_chat_id: int
 ):
     """
     Додає нове нагадування про день народження до таблиці 'birthdays'.
@@ -152,13 +155,13 @@ def add_birthday_reminder(
             creator_telegram_user_id, 
             birthday_person_identifier,
             birthdate, 
-            chat_id_to_notify
+            telegram_chat_id
         )
-        VALUES (?, ?, ?)
+        VALUES (?, ?, ?, ?)
     """
-    params = (creator_telegram_user_id, birthday_person_identifier, birthdate, chat_id_to_notify)
+    params = (creator_telegram_user_id, birthday_person_identifier, birthdate, telegram_chat_id)
     execute_query(query, params)
-    logger.info(f"Birthday reminder added for user ID {birthday_person_identifier} (birthdate: {birthdate}) to notify chat {chat_id_to_notify}.")
+    logger.info(f"Birthday reminder added for user ID {birthday_person_identifier} (birthdate: {birthdate}) to notify chat {telegram_chat_id}.")
 
 
 def get_birthday_reminders_for_today():

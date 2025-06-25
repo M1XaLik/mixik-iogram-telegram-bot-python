@@ -234,8 +234,8 @@ async def process_birthdate(message: types.Message, state: FSMContext):
     # Інформація про того, хто додав день народження потрапляє у базу даних
     database_manager.add_or_update_user(
         telegram_user_id=creator_telegram_user_id, 
-        username=creator_telegram_user_name, 
-        telegram_tag=creator_telegram_user_tag
+        telegram_user_name=creator_telegram_user_name, 
+        telegram_user_tag=creator_telegram_user_tag
     )
 
     # Додаємо день народження в базу даних.
@@ -243,7 +243,7 @@ async def process_birthdate(message: types.Message, state: FSMContext):
         creator_telegram_user_id=creator_telegram_user_id,
         birthday_person_identifier=birthday_person_identifier,
         birthdate=birthdate,
-        chat_id_to_notify=chat_id_to_notify
+        telegram_chat_id=chat_id_to_notify
     )
 
 

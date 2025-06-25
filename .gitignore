@@ -3,6 +3,9 @@ venv/
 __pycache__/
 .handler-saves/
 
+# Ignore database folders and files
+.data
+
 # Ignore environment files with sensitive information
 .env
 .env.*
