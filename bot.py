@@ -4,7 +4,9 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 import config
 import handlers # import commands realisation
-import database_handlers
+import database_manager
+import scheduler # планувальник (import scheduler)
+
 from logger import logger  # import logger
 
 # Створення об'єкта бота
@@ -18,10 +20,9 @@ dp = Dispatcher(storage=MemoryStorage())
 async def main():
     # 1 Ініціалізація бази даних
     # Database init
-    # TODO: зробити розгалуження, щоб перевірити чи база уже існує
     logger.info("Starting database initialization...")
     try:
-        database_handlers.init_database()
+        database_manager.init_database()
         logger.info("Database successfully initialized.")
     except Exception as e:
         logger.critical(f"Critical error during database initialization: {e}", exc_info=True)
@@ -36,6 +37,8 @@ async def main():
         logger.critical(f"Critical error during handlers registration: {e}", exc_info=True)
         return
 
+    # TODO: Сюди додати scheduler
+
     # 3. Запуск бота
     logger.info("Bot is running!")
     await bot.delete_webhook(drop_pending_updates=True) # щоб видалити всі вебхуки (оновлення), які накопичились в телеграмі за цей час
@@ -45,7 +48,5 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Bot stopped manually (Ctrl+C).")
     except Exception as e:
         logger.critical(f"Unexpected error during bot startup: {e}", exc_info=True) # exc_info=True додасть до логу повне трасування стека

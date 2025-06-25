@@ -9,6 +9,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import config  # Import configuration
 from logger import logger  # import logger
 
+import database_manager
 
 # Define states for user input
 class UserBirthday(StatesGroup):
@@ -20,20 +21,22 @@ class UserBirthday(StatesGroup):
 # Handler for the /start command
 async def start_command_handler(message: types.Message):
     logger.info(f"Received /start from user {message.from_user.id}")
-    await message.reply(config.startMessage, parse_mode="HTML")
+    await message.reply(config.START_MESSAGE, parse_mode="HTML")
 
 
 # Хендлер для help функції
 # Handler for the /help command
 async def help_command_handler(message: types.Message):
     logger.info(f"Received /help from user {message.from_user.id}")
-    await message.reply(config.commandsList, parse_mode="HTML")
+    await message.reply(config.COMMANDS_LIST, parse_mode="HTML")
 
 
 
-# Допоміжна функція для перевірки, чи повідомлення надсилає користувач,який ініціював ланцюг введення даних
-# Helper function to verify if the message is sent by the user who initiated the input sequence.
 async def is_user_authorized(message: types.Message, state: FSMContext) -> bool:    
+    '''
+    Допоміжна функція для перевірки, чи повідомлення надсилає користувач,який ініціював ланцюг введення даних
+    Helper function to verify if the message is sent by the user who initiated the input sequence.
+    '''
     
     # Ensure the user is replying to the bot's message
     if not message.reply_to_message or message.reply_to_message.from_user.id != message.bot.id:
@@ -77,13 +80,29 @@ async def is_user_authorized(message: types.Message, state: FSMContext) -> bool:
 
 
 # 1
-# /new – start commands chain
 async def new_birthday_handler(message: types.Message, state: FSMContext):
-    
+    '''
+    Initializes the birthday registration process for a new birthday entry.
+    This function is triggered by the '/new' command.
+
+    Args:
+        message (types.Message): The incoming Telegram message containing the name.
+        state (FSMContext): The FSM context for the current user.
+    '''
+
     logger.info(f"Initiating new birthday chain for user {message.from_user.id}")
 
     # Зберігаємо id користувача, який ініціював ланцюг
     await state.update_data(author_id=message.from_user.id)
+
+
+    # -- Оновити або додати інформацію про чат -- 
+    database_manager.add_or_update_chat_info(
+        telegram_chat_id=message.chat.id,
+        telegram_chat_name=message.chat.title if message.chat.title else message.from_user.full_name,
+        telegram_chat_type=message.chat.type
+    )
+
 
     # Створюємо inline-кнопку для скасування операції
     markup = InlineKeyboardMarkup(inline_keyboard=[
@@ -91,7 +110,7 @@ async def new_birthday_handler(message: types.Message, state: FSMContext):
     ])
 
     bot_message = await message.reply(
-        "<b>Enter your name</b>\n\n<i>Будь ласка відповідайте на повідомлення.</i>\n<i>Please reply to this message.</i>",
+        "<b>Введіть тег користувача чий день народження ви хочете додати до бази</b>\n\n<i>Будь ласка відповідайте на повідомлення.</i>\n<i>Please reply to this message.</i>",
         parse_mode="HTML",
         reply_markup=markup
     )
@@ -104,12 +123,16 @@ async def new_birthday_handler(message: types.Message, state: FSMContext):
     logger.debug("State set to UserBirthday.name")
 
 
-
-
-
 #2
-# NAME processing
 async def process_name(message: types.Message, state: FSMContext):
+    '''
+    Processes the user's telegram name or telegram tag input during the birthday registration flow.
+    Saves the provided name in the FSM context.
+
+    Args:
+        message (types.Message): The incoming Telegram message containing the name.
+        state (FSMContext): The FSM context for the current user.
+    '''
     
     logger.info(f"Processing name input from user {message.from_user.id}")
     
@@ -117,9 +140,11 @@ async def process_name(message: types.Message, state: FSMContext):
     if not await is_user_authorized(message, state):
         return
     
-    logger.debug(f"Received name: {message.text}")
-    await state.update_data(name=message.text)
-
+    
+    # Зберігаємо введений текст "як є". Це буде наш ідентифікатор іменинника.
+    birthday_person_identifier = message.text.strip()
+    logger.debug(f"Received identifier: {birthday_person_identifier}")
+    await state.update_data(birthday_person_identifier=birthday_person_identifier)
 
     # Отримуємо ID попереднього повідомлення
     data = await state.get_data()
@@ -133,7 +158,6 @@ async def process_name(message: types.Message, state: FSMContext):
             reply_markup=None
         )
 
-
     # Кнопка Cancel
     markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="❌ Cancel", callback_data="cancel")]
@@ -144,24 +168,27 @@ async def process_name(message: types.Message, state: FSMContext):
         "<b>Please enter your birthdate (format: YYYY-MM-DD):</b>\n\n<i>Будь ласка відповідайте на повідомлення.</i>\n<i>Please reply to this message.</i>",
         reply_markup=markup # сюди присобачити кнопку
     )
-
     
     # Оновлюємо ID останнього повідомлення
     await state.update_data(last_bot_message_id=bot_message.message_id)
-
 
     # Переходимо до наступного етапу
     await state.set_state(UserBirthday.birthdate)
     logger.debug("State set to UserBirthday.birthdate")
 
 
-
-
-
 # 3
-# DATE processing
 async def process_birthdate(message: types.Message, state: FSMContext):
-    
+    '''
+    Processes the user's birthdate input during the birthday registration flow.
+    It validates the birthdate format, saves it to the FSM context, and then
+    stores the full birthday entry (name and birthdate) into the database.
+
+    Args:
+        message (types.Message): The incoming Telegram message containing the name.
+        state (FSMContext): The FSM context for the current user.
+    '''
+
     logger.info(f"Processing birthdate input from user {message.from_user.id}")
     if not await is_user_authorized(message, state):
         return
@@ -194,19 +221,35 @@ async def process_birthdate(message: types.Message, state: FSMContext):
 
 
     # Дістаємо дані про користувача
-    name = data.get("name")
+    birthday_person_identifier = data.get("birthday_person_identifier")
     birthdate = data.get("birthdate")
-    logger.debug(f"Name: {name}, Birthdate: {birthdate}")
+    logger.debug(f"birthday_person_identifier: {birthday_person_identifier}, birthdate: {birthdate}")
+
+    creator_telegram_user_id = message.from_user.id
+    creator_telegram_user_name = message.from_user.full_name
+    creator_telegram_user_tag = message.from_user.username # ЯКЩО У КОРИСТУВАЧА НЕМАЄ ТЕГУ, ТО ПОЛЕ БУДЕ NONE
+
+    chat_id_to_notify = message.chat.id
+
+    # Інформація про того, хто додав день народження потрапляє у базу даних
+    database_manager.add_or_update_user(
+        telegram_user_id=creator_telegram_user_id, 
+        username=creator_telegram_user_name, 
+        telegram_tag=creator_telegram_user_tag
+    )
+
+    # Додаємо день народження в базу даних.
+    database_manager.add_birthday_reminder(
+        creator_telegram_user_id=creator_telegram_user_id,
+        birthday_person_identifier=birthday_person_identifier,
+        birthdate=birthdate,
+        chat_id_to_notify=chat_id_to_notify
+    )
 
 
-
-    # TODO: тут потрібно буде обробити це все і подати дані в БД
-    # ADD DATABASE HANDLERS
-
-
-
+    # Надсилаємо відповідь
     await message.reply(
-        f"✅ Thank you, {name}! Your birthdate is set as {birthdate}.",
+        f"✅ Thank you, {creator_telegram_user_name}! Birthdate for user {birthday_person_identifier} is set as {birthdate}.",
         parse_mode="HTML"
     )
 
@@ -249,17 +292,18 @@ async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
     logger.debug("Operation cancelled and state cleared.")
 
 
-
-
-
-
 # Реєструємо всі ці функції
 # Function to register handlers
 def register_handlers(dp: Dispatcher):
     dp.message.register(start_command_handler, Command("start"))
     dp.message.register(help_command_handler, Command("help"))
     dp.message.register(new_birthday_handler, Command("new"))
+
+    # Обробники станів FSM
     dp.message.register(process_name, StateFilter(UserBirthday.name))
     dp.message.register(process_birthdate, StateFilter(UserBirthday.birthdate))
+    
+    # Обробник для кнопки 'Cancel'
     dp.callback_query.register(cancel_handler, F.data == "cancel") # F.data - helper
+
     logger.info("Handlers registered successfully.")
