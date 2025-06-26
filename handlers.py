@@ -78,7 +78,7 @@ async def is_user_authorized(message: types.Message, state: FSMContext) -> bool:
 
 # FSM (Finite State Machine) - дозволяє контролювати стани користувача в чаті
 
-
+# TODO: повідомлення переглянути
 # 1
 async def new_birthday_handler(message: types.Message, state: FSMContext):
     '''
@@ -110,7 +110,7 @@ async def new_birthday_handler(message: types.Message, state: FSMContext):
     ])
 
     bot_message = await message.reply(
-        "<b>Введіть тег користувача чий день народження ви хочете додати до бази</b>\n\n<i>Будь ласка відповідайте на повідомлення.</i>\n<i>Please reply to this message.</i>",
+        "<b>Введіть ім'я або тег користувача, чий день народження ви хочете додати до бази</b>\n\n<i>Будь ласка відповідайте на повідомлення.</i>\n<i>Please reply to this message.</i>",
         parse_mode="HTML",
         reply_markup=markup
     )
@@ -165,7 +165,8 @@ async def process_name(message: types.Message, state: FSMContext):
 
     # Відправляємо повідомлення з запитом дати народження із кнопкою Cancel
     bot_message = await message.reply(
-        "<b>Please enter your birthdate (format: YYYY-MM-DD):</b>\n\n<i>Будь ласка відповідайте на повідомлення.</i>\n<i>Please reply to this message.</i>",
+        "<b>Введіть дату, будь ласка. Формат: <code>YYYY-MM-DD (Рік-Місяць-День)</code></b>\n\n<i>Будь ласка відповідайте на повідомлення.</i>\n<i>Please reply to this message.</i>",
+        parse_mode="HTML",
         reply_markup=markup # сюди присобачити кнопку
     )
     
@@ -281,7 +282,8 @@ async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
     # Send a notification to the chat about cancellation
     await callback.bot.send_message(
         chat_id=callback.message.chat.id,
-        text=f"⚠️ User {callback.from_user.full_name} has cancelled the operation."
+        text=f"⚠️ Користувач {callback.from_user.full_name} скасував операцію.",
+        parse_mode="HTML"
     )
     
     # Редагуємо повідомлення, щоб прибрати інлайн-клавіатуру
