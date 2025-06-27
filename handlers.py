@@ -250,7 +250,7 @@ async def process_birthdate(message: types.Message, state: FSMContext):
 
     # Надсилаємо відповідь
     await message.reply(
-        f"✅ Thank you, {creator_telegram_user_name}! Birthdate for user {birthday_person_identifier} is set as {birthdate}.",
+        f"✅ Дякую, {creator_telegram_user_name}! День народження користувача <code>{birthday_person_identifier}</code> збережено: <code>{birthdate}</code>.",
         parse_mode="HTML"
     )
 
