@@ -1,7 +1,7 @@
 # Telegram Birthday Greeting Bot
 
-**Mixik** - Telegram bot
-
+### **Mixik** - Telegram bot 
+#### [Детальніше (User Story)📃](./doc/user_story.md)
 ---
 
 ## PATCH NOTES v0.3 - 25.06.2025
