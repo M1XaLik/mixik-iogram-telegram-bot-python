@@ -1,5 +1,6 @@
 import logging
 from aiogram import Bot
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import random
 
@@ -52,7 +53,7 @@ async def send_daily_birthday_reminders_task(bot_instance: Bot):
                 display_date = birthdate
                 if len(birthdate) == 10: # Якщо формат YYYY-MM-DD
                     year = birthdate.split('-')[0]
-                    display_date = f"{birthdate[5:]}.{year}" # Наприклад, 05-15.1990
+                    display_date = f"{birthdate[5:]}.{year}" # Наприклад, 05-15.1990 TODO: розібратися із записом
                 
                 message_text = (
                     f"🎉 **Сьогодні День народження у {birthday_person_identifier}!**\n"
@@ -99,23 +100,41 @@ def setup_bot_scheduler(bot: Bot) -> AsyncIOScheduler:
     Returns:
         AsyncIOScheduler: Configured scheduler instance.
     """
-    scheduler = AsyncIOScheduler(timezone=config.SCHEDULER_TIMEZONE)
+    
+    try:
 
-    # Add the daily birthday reminder job
-    scheduler.add_job(
-        send_daily_birthday_reminders_task,
-        'cron',
-        hour=config.BIRTHDAY_REMINDER_HOUR,
-        minute=config.BIRTHDAY_REMINDER_MINUTE,
-        args=(bot,), # Pass the bot object as an argument to the task function
-        id='daily_birthday_check', # Unique ID for the job
-        name='Daily Birthday Check Task',
-        misfire_grace_time=config.SCHEDULER_MISFIRE_GRACE_TIME
-    )
-    logger.info("Daily birthday reminder job added to scheduler.")
+        scheduler = AsyncIOScheduler(timezone=config.SCHEDULER_TIMEZONE)
 
-    # FUTURE:
-    # Add other scheduled tasks here as needed:
-    # Example: scheduler.add_job(your_other_async_function, 'interval', minutes=30, args=(bot,))
+        # Add the daily birthday reminder job
+        scheduler.add_job(
+            send_daily_birthday_reminders_task,
+            CronTrigger(
+                hour=config.BIRTHDAY_REMINDER_HOUR,
+                minute=config.BIRTHDAY_REMINDER_MINUTE,
+                second=0,  # Запускаємо на початку хвилини
+                timezone=config.SCHEDULER_TIMEZONE
+            ),
+            args=(bot,), # Pass the bot object as an argument to the task function || передаємо об'єкт бота як аргумент до функції завдання
+            id='daily_birthday_check', # Unique ID for the job
+            name='Daily Birthday Check Task',
+            replace_existing=True,
+            misfire_grace_time=config.SCHEDULER_MISFIRE_GRACE_TIME
+        )
+        logger.info("Daily birthday reminder job added to scheduler.")
 
-    return scheduler
+
+        # FUTURE:
+        # Add other scheduled tasks here as needed:
+        # Example: scheduler.add_job(your_other_async_function, 'interval', minutes=30, args=(bot,))
+
+
+        try:
+            scheduler.start()  # Start the scheduler
+            logger.info("Scheduler successfully started.")
+        except Exception as e:
+            logger.critical(f"Failed to start the scheduler: {e}", exc_info=True)
+        
+        # при успіху
+        return scheduler
+    except Exception as e:
+        logger.critical(f"Failed to start the scheduler: {e}", exc_info=True)

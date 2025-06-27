@@ -41,7 +41,6 @@ async def main():
     logger.info("Starting scheduler...")
     try:
         scheduler.setup_bot_scheduler(bot)
-        logger.info("Scheduler successfully started.")
     except Exception as e:
         logger.critical(f"Critical error during scheduler startup: {e}", exc_info=True)
         # Якщо планувальник не запустився, бот продовжить працювати, але без автоматичних нагадувань.
