@@ -194,3 +194,41 @@ def get_birthday_reminders_for_today():
     
     # Повертає список кортежів, де кожен кортеж містить певні визначені поля
     return reminders
+
+def get_birthday_reminder_for_chat(chat_id: int):
+    """
+    Retrieves all birthday reminders for a specific chat from the 'birthdays' table.
+    
+    Args:
+        chat_id (int): The Telegram chat ID to filter reminders.
+    
+    Returns:
+        List of birthday reminders for the specified chat.
+    """
+    
+    logger.info(f"Retrieving birthday reminders for chat ID {chat_id}...")
+    
+    try:
+        query = """
+            SELECT 
+                b.id,
+                b.creator_telegram_user_id,
+                b.birthday_person_identifier,
+                b.birthdate,
+                b.telegram_chat_id,
+                c.telegram_chat_name,
+                c.telegram_chat_type
+            FROM birthdays b
+            JOIN chats c ON b.telegram_chat_id = c.telegram_chat_id
+            WHERE b.telegram_chat_id = ?;
+        """
+        
+        reminders = execute_query(query, (chat_id,), fetchall=True)
+        logger.debug(f"Found {len(reminders)} birthday reminders for chat ID {chat_id}.")
+        
+        return reminders
+    except Exception as e:
+        logger.error(f"Error retrieving birthday reminders for chat ID {chat_id}: {e}", exc_info=True)
+        return []
+    
+    

@@ -258,6 +258,78 @@ async def process_birthdate(message: types.Message, state: FSMContext):
     await state.clear()
 
 
+async def list_birthdays(message: types.Message):
+    """
+    /list command handler to list all birthday reminders in the chat.
+    """
+
+    chat_id = message.chat.id
+    logger.info(f"User {message.from_user.full_name} (id = {message.from_user.id}) requested /list command in chat {chat_id}")
+
+    # дістати згадки з бази даних
+    reminders = database_manager.get_birthday_reminder_for_chat(chat_id=chat_id)
+
+    if not reminders:
+        await message.reply("У цьому чаті ще немає доданих нагадувань про дні народження.")
+        logger.info(f"No reminders found for chat {chat_id}.")
+        return
+    
+    # Заголовок повідомлення
+    initial_response_header = "🎂 **Ось усі нагадування про дні народження, додані для цього чату:**\n\n"
+    
+    # Список рядків для кожного запису у бд
+    reminder_lines = []
+    # У циклі перебираємо усі нагадування
+    for i, reminder in enumerate(reminders): # enumerate додає індекс для кожного нагадування
+        # Оновлене розпакування, щоб відповідало 7 полям із запиту
+        # b.id, b.creator_telegram_user_id, b.birthday_person_identifier, b.birthdate, b.telegram_chat_id, c.telegram_chat_name, c.telegram_chat_type
+        _, _, person_identifier, birthdate, _, _, _ = reminder # _ для ігнорування
+        
+        # Форматування дати для відображення
+        display_date = birthdate
+        if len(birthdate) == 10: # Якщо формат YYYY-MM-DD
+            parts = birthdate.split('-')
+            display_date = f"{parts[2]}.{parts[1]}.{parts[0]}" # DD.MM.YYYY
+            # Або якщо рік не потрібен:
+            # display_date = f"{parts[2]}.{parts[1]}" # DD.MM
+
+        # Формується рядок
+        reminder_lines.append(f"*{i+1}.* {person_identifier} (Дата народження: {display_date})\n")
+    
+    # --- ЛОГІКА РОЗБИТТЯ ПОВІДОМЛЕННЯ ---
+    # Максимальна довжина повідомлення в Telegram (4096 символів)
+    TELEGRAM_MESSAGE_LIMIT = 4096
+
+    current_message_parts = [initial_response_header] # додаємо заголовок
+    total_chars_in_current_message = len(initial_response_header) # рахуємо довжину заголовка
+    sent_messages_count = 0 # лічильник відправлених повідомлень
+
+    for line in reminder_lines:
+        # Перевіряємо, чи додавання наступного рядка перевищить ліміт
+        if total_chars_in_current_message + len(line) + 1 > TELEGRAM_MESSAGE_LIMIT: # кожен рядок потребує символу '/n' щоб не зливатись із попереднім
+
+            # Якщо так, відправляємо поточне накопичене повідомлення
+            await message.reply("".join(current_message_parts), parse_mode="Markdown")
+            logger.debug(f"Sent part {sent_messages_count + 1} of list to chat {chat_id}.")
+            sent_messages_count += 1 # оновлюємо лічильник
+            
+            # Починаємо нове повідомлення з нового рядка
+            current_message_parts = [line] # затираємо стару змінну, додаючи повідомлення, що не помістилось на попередній сторінці
+            total_chars_in_current_message = len(line)
+        else:
+            # Якщо ліміт не перевищено, додаємо рядок до поточного повідомлення
+            current_message_parts.append(line)
+            total_chars_in_current_message += len(line) + 1 # +1 для нового рядка
+    
+    # Відправляємо останнє накопичене повідомлення (якщо щось залишилось)
+    if current_message_parts:
+        await message.reply("".join(current_message_parts), parse_mode="Markdown")
+        sent_messages_count += 1
+        logger.debug(f"Sent final part {sent_messages_count} of list to chat {chat_id}.")
+
+    logger.info(f"Successfully sent list of {len(reminders)} reminders in {sent_messages_count} messages to chat {chat_id}.")
+
+
 # Callback handler для скасування операції
 async def cancel_handler(callback: types.CallbackQuery, state: FSMContext):
     
@@ -300,6 +372,7 @@ def register_handlers(dp: Dispatcher):
     dp.message.register(start_command_handler, Command("start"))
     dp.message.register(help_command_handler, Command("help"))
     dp.message.register(new_birthday_handler, Command("new"))
+    dp.message.register(list_birthdays, Command("list"))
 
     # Обробники станів FSM
     dp.message.register(process_name, StateFilter(UserBirthday.name))
