@@ -353,14 +353,20 @@ async def delete_birthday_handler(message: types.Message, command: Command, bot:
     try:
         reminder_id_to_delete = int(command.args)
     except ValueError:
-        await message.reply("ID нагадування має бути числом. Наприклад: `/delete 123`")
+        await message.reply(
+            text="ID нагадування має бути числом. Наприклад: <code>/delete 123</code>",
+            reply_markup="HTML"
+        )
         return
 
     # 1. Перевірка, чи існує таке нагадування та хто його творець
     creator_id = database_manager.get_birthday_reminder_creator(reminder_id_to_delete)
 
     if creator_id is None:
-        await message.reply(f"Нагадування з ID `{reminder_id_to_delete}` не знайдено.")
+        await message.reply(
+            text=f"Нагадування з ID <code>{reminder_id_to_delete}</code> не знайдено.",
+            reply_markup="HTML"
+        )
         logger.info(f"Attempt to delete non-existent reminder ID {reminder_id_to_delete} by {user_info}.")
         return
 
@@ -396,10 +402,16 @@ async def delete_birthday_handler(message: types.Message, command: Command, bot:
     try:
         database_manager.delete_birthday_reminder(reminder_id_to_delete)
         
-        await message.reply(f"Нагадування з ID `{reminder_id_to_delete}` успішно видалено.")
+        await message.reply(
+            text=f"Нагадування з ID <code>{reminder_id_to_delete}</code> успішно видалено.",
+            reply_markup="HTML"
+        )
         logger.info(f"Reminder {reminder_id_to_delete} deleted by {user_info}.")
     except Exception as e:
-        await message.reply(f"Не вдалося видалити нагадування з ID `{reminder_id_to_delete}`. Будь ласка, спробуйте ще раз або зверніться до підтримки.")
+        await message.reply(
+            text=f"Не вдалося видалити нагадування з ID <code>{reminder_id_to_delete}</code>. Будь ласка, спробуйте ще раз або зверніться до підтримки.",
+            reply_markup="HTML"
+        )
         logger.error(f"Failed to delete reminder {reminder_id_to_delete} by {user_info} - DB operation failed.")
 
     return
