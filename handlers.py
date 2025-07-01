@@ -1,5 +1,5 @@
 import re
-from aiogram import F, Dispatcher, types
+from aiogram import F, Bot, Dispatcher, types
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -283,7 +283,7 @@ async def list_birthdays(message: types.Message):
     for i, reminder in enumerate(reminders): # enumerate додає індекс для кожного нагадування
         # Оновлене розпакування, щоб відповідало 7 полям із запиту
         # b.id, b.creator_telegram_user_id, b.birthday_person_identifier, b.birthdate, b.telegram_chat_id, c.telegram_chat_name, c.telegram_chat_type
-        _, _, person_identifier, birthdate, _, _, _ = reminder # _ для ігнорування
+        reminder_id, _, person_identifier, birthdate, _, _, _ = reminder # _ для ігнорування
         
         # Форматування дати для відображення
         display_date = birthdate
@@ -294,7 +294,7 @@ async def list_birthdays(message: types.Message):
             # display_date = f"{parts[2]}.{parts[1]}" # DD.MM
 
         # Формується рядок
-        reminder_lines.append(f"*{i+1}.* {person_identifier} (Дата народження: {display_date})\n")
+        reminder_lines.append(f"*{i+1}.* {person_identifier} - {display_date}, id = {reminder_id}\n")
     
     # --- ЛОГІКА РОЗБИТТЯ ПОВІДОМЛЕННЯ ---
     # Максимальна довжина повідомлення в Telegram (4096 символів)
@@ -328,6 +328,81 @@ async def list_birthdays(message: types.Message):
         logger.debug(f"Sent final part {sent_messages_count} of list to chat {chat_id}.")
 
     logger.info(f"Successfully sent list of {len(reminders)} reminders in {sent_messages_count} messages to chat {chat_id}.")
+
+
+async def delete_birthday_handler(message: types.Message, command: Command, bot: Bot): # command містить аргументи команди
+    """
+    Handles the /delete command to remove a birthday reminder from the database.
+
+    This command requires a reminder ID (e.g., `/delete 123`).
+    
+    Only the reminder's creator or a chat administrator (in groups) can delete it.
+    The bot will provide feedback for invalid IDs, permission issues, or successful deletion.
+    """
+
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    user_info = f"User {message.from_user.full_name} (id = {user_id})"
+    
+    logger.info(f"{user_info} requested /delete command in chat {chat_id}. Args: {command.args}")
+
+    if not command.args:
+        await message.reply(text="Будь ласка, вкажіть ID нагадування, яке потрібно видалити. Наприклад: <code>/delete 123</code>", parse_mode="HTML")
+        return
+
+    try:
+        reminder_id_to_delete = int(command.args)
+    except ValueError:
+        await message.reply("ID нагадування має бути числом. Наприклад: `/delete 123`")
+        return
+
+    # 1. Перевірка, чи існує таке нагадування та хто його творець
+    creator_id = database_manager.get_birthday_reminder_creator(reminder_id_to_delete)
+
+    if creator_id is None:
+        await message.reply(f"Нагадування з ID `{reminder_id_to_delete}` не знайдено.")
+        logger.info(f"Attempt to delete non-existent reminder ID {reminder_id_to_delete} by {user_info}.")
+        return
+
+    # 2. Перевірка прав доступу
+    can_delete = False
+    
+    # Якщо користувач є творцем запису
+    if user_id == creator_id:
+        can_delete = True
+        logger.debug(f"{user_info} is the creator of reminder {reminder_id_to_delete}.")
+    else:
+        # Якщо це груповий чат, перевіряємо, чи користувач є адміністратором
+        if message.chat.type in ["group", "supergroup"]:
+            try:
+                member = await bot.get_chat_member(chat_id, user_id)
+                if member.status in ["creator", "administrator"]:
+                    can_delete = True
+                    logger.debug(f"{user_info} is an admin in group {chat_id}.")
+                else:
+                    logger.warning(f"{user_info} is not an admin in group {chat_id} and not creator of {reminder_id_to_delete}.")
+            except Exception as e:
+                logger.error(f"Error checking chat member status for {user_id} in chat {chat_id}: {e}", exc_info=True)
+                await message.reply("Виникла помилка під час перевірки ваших прав адміністратора. Будь ласка, спробуйте пізніше.")
+                return
+        else: # Приватний чат, і користувач не творець
+            logger.warning(f"{user_info} attempted to delete reminder {reminder_id_to_delete} in private chat without being creator.")
+
+    if not can_delete:
+        await message.reply("Ви не маєте прав видаляти це нагадування. Видалити його може лише той, хто його створив, або адміністратор цього чату (якщо це група).")
+        return
+
+    # 3. Видалення нагадування, якщо права підтверджені
+    try:
+        database_manager.delete_birthday_reminder(reminder_id_to_delete)
+        
+        await message.reply(f"Нагадування з ID `{reminder_id_to_delete}` успішно видалено.")
+        logger.info(f"Reminder {reminder_id_to_delete} deleted by {user_info}.")
+    except Exception as e:
+        await message.reply(f"Не вдалося видалити нагадування з ID `{reminder_id_to_delete}`. Будь ласка, спробуйте ще раз або зверніться до підтримки.")
+        logger.error(f"Failed to delete reminder {reminder_id_to_delete} by {user_info} - DB operation failed.")
+
+    return
 
 
 # Callback handler для скасування операції
@@ -373,6 +448,7 @@ def register_handlers(dp: Dispatcher):
     dp.message.register(help_command_handler, Command("help"))
     dp.message.register(new_birthday_handler, Command("new"))
     dp.message.register(list_birthdays, Command("list"))
+    dp.message.register(delete_birthday_handler, Command("delete"))
 
     # Обробники станів FSM
     dp.message.register(process_name, StateFilter(UserBirthday.name))

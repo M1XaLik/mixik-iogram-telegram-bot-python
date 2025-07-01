@@ -232,3 +232,50 @@ def get_birthday_reminder_for_chat(chat_id: int):
         return []
     
     
+def delete_birthday_reminder(reminder_id: int):
+    """
+    Deletes a birthday reminder by its ID from the 'birthdays' table.
+    
+    Args:
+        reminder_id (int): The ID of the birthday reminder to delete.
+    """
+    
+    logger.info(f"Deleting birthday reminder with ID {reminder_id}...")
+    
+    try:
+        query = "DELETE FROM birthdays WHERE id = ?;"
+        execute_query(query, (reminder_id,))
+        logger.info(f"Birthday reminder with ID {reminder_id} deleted successfully.")
+    except Exception as e:
+        logger.error(f"Error deleting birthday reminder with ID {reminder_id}: {e}", exc_info=True)
+        raise
+
+
+def get_birthday_reminder_creator(reminder_id = int):
+    """
+    Retrieves the creator's Telegram user ID for a specific birthday reminder.
+    
+    Args:
+        reminder_id (int): The ID of the birthday reminder.
+    
+    Returns:
+        The Telegram user ID of the creator, or None if not found.
+    """
+    
+    logger.info(f"Retrieving creator for birthday reminder ID {reminder_id}...")
+    
+    try:
+        query = "SELECT creator_telegram_user_id FROM birthdays WHERE id = ?;"
+        result = execute_query(query, (reminder_id,), fetchone=True)
+        
+        if result:
+            creator_id = result[0]
+            logger.debug(f"Creator ID for reminder {reminder_id} is {creator_id}.")
+            return creator_id
+        else:
+            logger.warning(f"No creator found for birthday reminder ID {reminder_id}.")
+            return None
+    except Exception as e:
+        logger.error(f"Error retrieving creator for birthday reminder ID {reminder_id}: {e}", exc_info=True)
+        return None
+
