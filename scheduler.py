@@ -66,18 +66,18 @@ async def send_daily_birthday_reminders_task(bot_instance: Bot):
                     text=message_text,
                     parse_mode="Markdown" # Використовуємо Markdown для жирного тексту
                 )
-                
-                # TODO: GIF або випадкові тексти
-                # if config.BIRTHDAY_GIFS:
-                #     await bot_instance.send_animation(
-                #         chat_id=chat_id_to_notify,
-                #         animation=random.choice(config.BIRTHDAY_GIFS)
-                #     )
-                # if config.BIRTHDAY_TEXTS:
-                #     await bot_instance.send_message(
-                #         chat_id=chat_id_to_notify,
-                #         text=random.choice(config.BIRTHDAY_TEXTS)
-                #     )
+                # GIF
+                if config.BIRTHDAY_GIFS:
+                    await bot_instance.send_animation(
+                        chat_id=chat_id_to_notify,
+                        animation=random.choice(config.BIRTHDAY_GIFS)
+                    )
+                # тексти привітань
+                if config.BIRTHDAY_TEXTS:
+                    await bot_instance.send_message(
+                        chat_id=chat_id_to_notify,
+                        text=random.choice(config.BIRTHDAY_TEXTS)
+                    )
 
                 logger.info(f"Successfully sent birthday reminder for '{birthday_person_identifier}' to chat ID {chat_id_to_notify}.")
 
